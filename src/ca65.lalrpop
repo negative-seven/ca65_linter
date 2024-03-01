@@ -9,18 +9,30 @@ match {
     _
 }
 
-Identifier: Identifier = <s:r"@?[a-zA-Z][a-zA-Z0-9_]*"> => Identifier {
-    string: s.to_string()
+Identifier: Identifier = <start:@L> <s:r"@?[a-zA-Z][a-zA-Z0-9_]*"> <end:@R> => Identifier {
+    string: s.to_string(),
+    span: Span {
+        start,
+        end,
+    },
 };
 
 NumberLiteral: NumberLiteral = {
-    <digits:r"\$[0-9a-fA-F]+"> => NumberLiteral {
+    <start:@L> <digits:r"\$[0-9a-fA-F]+"> <end:@R> => NumberLiteral {
         value: u16::from_str_radix(&digits[1..], 16).unwrap(),
         base: NumberLiteralBase::Hexadecimal,
+        span: Span {
+            start,
+            end,
+        },
     },
-    <digits:r"[0-9]+"> => NumberLiteral {
+    <start:@L> <digits:r"[0-9]+"> <end:@R> => NumberLiteral {
         value: u16::from_str(digits).unwrap(),
         base: NumberLiteralBase::Decimal,
+        span: Span {
+            start,
+            end,
+        },
     },
 }
 
@@ -38,11 +50,19 @@ ExplicitLabel: ExplicitLabel = <identifier:Identifier> ":=" <value:Expression> =
     value,
 };
 
-InstructionOperand: InstructionOperand = {
-    => InstructionOperand::None,
-    "#" <expression:Expression> => InstructionOperand::Immediate(expression),
-    <expression:Expression> => InstructionOperand::Direct(expression),
+InstructionOperandKind: InstructionOperandKind = {
+    => InstructionOperandKind::None,
+    "#" <expression:Expression> => InstructionOperandKind::Immediate(expression),
+    <expression:Expression> => InstructionOperandKind::Direct(expression),
 }
+
+InstructionOperand: InstructionOperand = <start:@L> <kind:InstructionOperandKind> <end:@R> => InstructionOperand {
+    kind,
+    span: Span {
+        start,
+        end,
+    },
+};
 
 Instruction: Instruction = <mnemonic:Identifier> <operand:InstructionOperand> => Instruction {
     mnemonic,

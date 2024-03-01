@@ -1,10 +1,13 @@
 mod ast;
 
 use ast::{
-    ExplicitLabel, Expression, ImplicitLabel, InstructionOperand, NumberLiteralBase, Statement,
+    ExplicitLabel, Expression, ImplicitLabel, InstructionOperandKind, NumberLiteralBase, Span,
+    Statement,
 };
 use lalrpop_util::lalrpop_mod;
 use std::{error::Error, io::Read};
+
+use crate::ast::Spanned;
 
 lalrpop_mod!(pub ca65);
 
@@ -29,46 +32,62 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
+    let mut rule_violations = Vec::new();
     let mut unreferenced_labels = Vec::new();
-    let mut decimal_address_references = Vec::new();
     for statement in &statements {
         match statement {
             Statement::ExplicitLabel(ExplicitLabel { identifier, .. })
             | Statement::ImplicitLabel(ImplicitLabel { identifier }) => {
-                unreferenced_labels.push(identifier.string.clone());
+                unreferenced_labels.push(identifier.clone());
             }
             Statement::Instruction(_) => (),
         }
     }
     for statement in statements {
         match statement {
-            Statement::Instruction(instruction) => match instruction.operand {
-                InstructionOperand::Direct(Expression::Identifier(identifier)) => {
+            Statement::Instruction(instruction) => match instruction.operand.kind {
+                InstructionOperandKind::Direct(Expression::Identifier(identifier)) => {
                     unreferenced_labels
                         .iter()
-                        .position(|e| *e == identifier.string)
+                        .position(|e| e.string == identifier.string)
                         .inspect(|i| {
                             unreferenced_labels.remove(*i);
                         });
                 }
-                InstructionOperand::Direct(Expression::NumberLiteral(ref literal)) => {
+                InstructionOperandKind::Direct(Expression::NumberLiteral(ref literal)) => {
                     if literal.base == NumberLiteralBase::Decimal {
-                        decimal_address_references.push(instruction);
+                        rule_violations.push(RuleViolation {
+                            description: "memory referenced via decimal address".to_string(),
+                            span: instruction.operand.span(),
+                        });
                     }
                 }
-                InstructionOperand::None | InstructionOperand::Immediate(_) => (),
+                InstructionOperandKind::None | InstructionOperandKind::Immediate(_) => (),
             },
             Statement::ExplicitLabel(_) | Statement::ImplicitLabel(_) => (),
         }
     }
 
     for unreferenced_label in &unreferenced_labels {
-        println!("unreferenced label: {unreferenced_label}");
+        rule_violations.push(RuleViolation {
+            description: "unreferenced label".to_string(),
+            span: unreferenced_label.span(),
+        });
     }
 
-    for decimal_address_reference in &decimal_address_references {
-        println!("memory referenced via decimal address: {decimal_address_reference}");
+    for rule_violation in rule_violations {
+        println!("rule violation: {}", rule_violation.description);
+        println!(
+            "at: {}..{}",
+            rule_violation.span.start, rule_violation.span.end
+        );
+        println!();
     }
 
     Ok(())
+}
+
+struct RuleViolation {
+    description: String,
+    span: Span,
 }
