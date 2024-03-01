@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Identifier {
     pub string: String,
 }
@@ -11,16 +11,28 @@ impl Display for Identifier {
     }
 }
 
-#[derive(Debug)]
-pub struct NumberLiteral(pub u16);
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NumberLiteralBase {
+    Decimal,
+    Hexadecimal,
+}
+
+#[derive(Clone, Debug)]
+pub struct NumberLiteral{
+    pub value: u16,
+    pub base: NumberLiteralBase,
+}
 
 impl Display for NumberLiteral {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        match self.base {
+            NumberLiteralBase::Decimal => write!(f, "{}", self.value),
+            NumberLiteralBase::Hexadecimal => write!(f, "${:x}", self.value),
+        }
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Expression {
     Identifier(Identifier),
     NumberLiteral(NumberLiteral),
@@ -35,7 +47,7 @@ impl Display for Expression {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum InstructionOperand {
     None,
     Immediate(Expression),
@@ -52,7 +64,7 @@ impl Display for InstructionOperand {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Instruction {
     pub mnemonic: Identifier,
     pub operand: InstructionOperand,
@@ -64,7 +76,7 @@ impl Display for Instruction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ImplicitLabel {
     pub identifier: Identifier,
 }
@@ -75,7 +87,7 @@ impl Display for ImplicitLabel {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ExplicitLabel {
     pub identifier: Identifier,
     pub value: Expression,
@@ -87,7 +99,7 @@ impl Display for ExplicitLabel {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Statement {
     ExplicitLabel(ExplicitLabel),
     ImplicitLabel(ImplicitLabel),

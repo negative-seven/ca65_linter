@@ -14,8 +14,14 @@ Identifier: Identifier = <s:r"@?[a-zA-Z][a-zA-Z0-9_]*"> => Identifier {
 };
 
 NumberLiteral: NumberLiteral = {
-    <digits:r"\$[0-9a-fA-F]+"> => NumberLiteral(u16::from_str_radix(&digits[1..], 16).unwrap()),
-    <digits:r"[0-9]+"> => NumberLiteral(u16::from_str(digits).unwrap()),
+    <digits:r"\$[0-9a-fA-F]+"> => NumberLiteral {
+        value: u16::from_str_radix(&digits[1..], 16).unwrap(),
+        base: NumberLiteralBase::Hexadecimal,
+    },
+    <digits:r"[0-9]+"> => NumberLiteral {
+        value: u16::from_str(digits).unwrap(),
+        base: NumberLiteralBase::Decimal,
+    },
 }
 
 Expression: Expression = {

@@ -1,14 +1,10 @@
 mod ast;
 
-use ast::{ExplicitLabel, Statement};
-use lalrpop_util::lalrpop_mod;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    error::Error,
-    io::Read,
+use ast::{
+    ExplicitLabel, Expression, ImplicitLabel, InstructionOperand, NumberLiteralBase, Statement,
 };
-
-use crate::ast::{Expression, InstructionOperand};
+use lalrpop_util::lalrpop_mod;
+use std::{error::Error, io::Read};
 
 lalrpop_mod!(pub ca65);
 
@@ -33,14 +29,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     };
 
-    let mut unreferenced_labels = BTreeSet::new();
+    let mut unreferenced_labels = Vec::new();
+    let mut decimal_address_references = Vec::new();
     for statement in &statements {
         match statement {
-            Statement::ExplicitLabel(explicit_label) => {
-                unreferenced_labels.insert(explicit_label.identifier.string.clone());
-            }
-            Statement::ImplicitLabel(implicit_label) => {
-                unreferenced_labels.insert(implicit_label.identifier.string.clone());
+            Statement::ExplicitLabel(ExplicitLabel { identifier, .. })
+            | Statement::ImplicitLabel(ImplicitLabel { identifier }) => {
+                unreferenced_labels.push(identifier.string.clone());
             }
             Statement::Instruction(_) => (),
         }
@@ -49,11 +44,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         match statement {
             Statement::Instruction(instruction) => match instruction.operand {
                 InstructionOperand::Direct(Expression::Identifier(identifier)) => {
-                    unreferenced_labels.remove(&identifier.string);
+                    unreferenced_labels
+                        .iter()
+                        .position(|e| *e == identifier.string)
+                        .inspect(|i| {
+                            unreferenced_labels.remove(*i);
+                        });
                 }
-                InstructionOperand::Direct(Expression::NumberLiteral(_))
-                | InstructionOperand::None
-                | InstructionOperand::Immediate(_) => (),
+                InstructionOperand::Direct(Expression::NumberLiteral(ref literal)) => {
+                    if literal.base == NumberLiteralBase::Decimal {
+                        decimal_address_references.push(instruction);
+                    }
+                }
+                InstructionOperand::None | InstructionOperand::Immediate(_) => (),
             },
             Statement::ExplicitLabel(_) | Statement::ImplicitLabel(_) => (),
         }
@@ -61,6 +64,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for unreferenced_label in &unreferenced_labels {
         println!("unreferenced label: {unreferenced_label}");
+    }
+
+    for decimal_address_reference in &decimal_address_references {
+        println!("memory referenced via decimal address: {decimal_address_reference}");
     }
 
     Ok(())
