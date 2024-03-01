@@ -1,0 +1,59 @@
+use std::str::FromStr;
+use crate::ast::*;
+
+grammar;
+
+match {
+    r"[ \t\r]+" => { },
+} else {
+    _
+}
+
+Identifier: Identifier = <s:r"@?[a-zA-Z][a-zA-Z0-9_]*"> => Identifier {
+    string: s.to_string()
+};
+
+NumberLiteral: NumberLiteral = {
+    <digits:r"\$[0-9a-fA-F]+"> => NumberLiteral(u16::from_str_radix(&digits[1..], 16).unwrap()),
+    <digits:r"[0-9]+"> => NumberLiteral(u16::from_str(digits).unwrap()),
+}
+
+Expression: Expression = {
+    <e:Identifier> => Expression::Identifier(e),
+    <e:NumberLiteral> => Expression::NumberLiteral(e),
+}
+
+ImplicitLabel: ImplicitLabel = <identifier:Identifier> ":" => ImplicitLabel {
+    identifier,
+};
+
+ExplicitLabel: ExplicitLabel = <identifier:Identifier> ":=" <value:Expression> => ExplicitLabel {
+    identifier,
+    value,
+};
+
+InstructionOperand: InstructionOperand = {
+    => InstructionOperand::None,
+    "#" <expression:Expression> => InstructionOperand::Immediate(expression),
+    <expression:Expression> => InstructionOperand::Direct(expression),
+}
+
+Instruction: Instruction = <mnemonic:Identifier> <operand:InstructionOperand> => Instruction {
+    mnemonic,
+    operand,
+};
+
+Statement: Statement = {
+    <s:ExplicitLabel> => Statement::ExplicitLabel(s),
+    <s:ImplicitLabel> => Statement::ImplicitLabel(s),
+    <s:Instruction> => Statement::Instruction(s),
+}
+
+LineStatements: Vec<Statement> = {
+    r"\n+" => vec![],
+    <s:ExplicitLabel> r"\n+" => vec![Statement::ExplicitLabel(s)],
+    <s:ImplicitLabel> r"\n+" => vec![Statement::ImplicitLabel(s)],
+    <s:Instruction> r"\n+" => vec![Statement::Instruction(s)],
+}
+
+pub Statements: Vec<Statement> = <s:LineStatements*> => s.into_iter().flatten().collect();
