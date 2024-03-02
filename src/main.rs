@@ -20,8 +20,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut source_file = std::fs::File::open(source_filename)?;
     let mut source = String::new();
     source_file.read_to_string(&mut source)?;
-    source.push('\n'); // hack for correct parsing, as LALRPOP does not support the $ regex
-                       // metacharacter
 
     let parser = ca65::StatementsParser::new();
     let statements = match parser.parse(&source) {

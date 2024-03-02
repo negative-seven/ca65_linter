@@ -76,10 +76,11 @@ Statement: Statement = {
 }
 
 LineStatements: Vec<Statement> = {
-    r"\n+" => vec![],
-    <s:ExplicitLabel> r"\n+" => vec![Statement::ExplicitLabel(s)],
-    <s:ImplicitLabel> r"\n+" => vec![Statement::ImplicitLabel(s)],
-    <s:Instruction> r"\n+" => vec![Statement::Instruction(s)],
+    => vec![],
+    <s:ExplicitLabel> => vec![Statement::ExplicitLabel(s)],
+    <s:ImplicitLabel> => vec![Statement::ImplicitLabel(s)],
+    <s:Instruction> => vec![Statement::Instruction(s)],
 }
 
-pub Statements: Vec<Statement> = <s:LineStatements*> => s.into_iter().flatten().collect();
+pub Statements: Vec<Statement> = <s0:LineStatements> <s1:(r"\n+" <LineStatements>)*> =>
+    std::iter::once(s0).chain(s1).flatten().collect();
